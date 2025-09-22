@@ -9,7 +9,7 @@ from sqlalchemy.orm import declarative_base
 #Step 2 - Load the database url
 load_dotenv()  #Now Python can read .env where we have stored the database link
 
-DATABASE_URL = os.getenv(" 'https://rgejpuecsrsdepoxkhaw.supabase.co'")  # Reads database url from .env
+DATABASE_URL = os.getenv("DATABASE_URL")  # Reads database url from .env
 
 #Step3 - create a database engine
 
