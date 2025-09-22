@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Header, UploadFile, File, F
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from uuid import uuid4
 import os
 import sih_crud
@@ -28,6 +29,23 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+# ... your existing app = FastAPI() and other endpoints
+
+# ADD THIS NEW ENDPOINT
+@app.get("/db-check")
+def check_db_connection(db: Session = Depends(get_db)):
+    """
+    A simple endpoint to verify the database connection.
+    """
+    try:
+        # Execute a simple, harmless query
+        db.execute(text("SELECT 1"))
+        return {"status": "ok", "message": "Database connection successful!"}
+    except Exception as e:
+        # If the query fails, the connection is down
+        return {"status": "error", "message": "Database connection failed.", "details": str(e)}
 
 # ------------------ Upload Directory ------------------
 UPLOAD_DIR = "uploads"
