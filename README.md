@@ -79,10 +79,10 @@ npm start<br>
 
 ## Model Details
 
--**Model:**YOLOv8
--**Training Data:** Custom dataset collected for the problem scenario
--**Output:** Prediction labels with bounding boxes and confidence scores
--**Integration:** Backend API receives predictions and updates the database
+-**Model:**YOLOv8<br>
+-**Training Data:** Custom dataset collected for the problem scenario<br>
+-**Output:** Prediction labels with bounding boxes and confidence scores<br>
+-**Integration:** Backend API receives predictions and updates the database<br>
 
 ---
 
