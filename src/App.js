@@ -25,6 +25,11 @@ const AppStyles = () => (
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
       width: 90vw;
       max-width: 400px;
+      transition: transform 0.3s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
     }
 
     h1 {
@@ -43,6 +48,7 @@ const AppStyles = () => (
       border-radius: 8px;
       margin-bottom: 1rem;
       background-color: #e4e6eb;
+      transition: opacity 0.3s;
     }
 
     .button {
@@ -54,12 +60,13 @@ const AppStyles = () => (
       font-size: 1rem;
       font-weight: bold;
       cursor: pointer;
-      transition: background-color 0.2s;
-      margin-top: 1rem;
+      transition: background-color 0.2s, transform 0.2s;
+      margin: 0.5rem;
     }
 
     .button:hover {
       background-color: #166fe5;
+      transform: scale(1.05);
     }
 
     .status {
@@ -89,6 +96,22 @@ const AppStyles = () => (
       height: 200px;
       border: 0;
     }
+
+    .countdown {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #ff4d4f;
+      margin-bottom: 1rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.5rem;
+      margin-bottom: 1rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+    }
   `}</style>
 );
 
@@ -100,6 +123,11 @@ export default function App() {
   const [location, setLocation] = useState(null);
   const [status, setStatus] = useState("Tap 'Start Report' to begin");
   const [isCapturing, setIsCapturing] = useState(false);
+  const [countdown, setCountdown] = useState(null);
+  const [description, setDescription] = useState(""); // ✅ Added description state
+  const [submittedComplaint, setSubmittedComplaint] = useState(null);
+
+  const BACKEND_URL = "http://127.0.0.1:8000"; // change to your server URL
 
   const getLocation = () => {
     return new Promise((resolve) => {
@@ -135,8 +163,7 @@ export default function App() {
         videoRef.current.play().catch((err) => console.warn("Video play failed:", err));
       }
       setIsCapturing(true);
-      setStatus("Camera is ready. Capturing photo...");
-      setTimeout(capturePhoto, 1000);
+      startCountdown();
     } catch (err) {
       console.error(err);
       setStatus("Camera access denied.");
@@ -149,6 +176,21 @@ export default function App() {
     await startCamera();
   };
 
+  const startCountdown = () => {
+    let count = 3;
+    setCountdown(count);
+    setStatus("Get ready...");
+
+    const timer = setInterval(() => {
+      count -= 1;
+      setCountdown(count > 0 ? count : null);
+      if (count <= 0) {
+        clearInterval(timer);
+        capturePhoto();
+      }
+    }, 1000);
+  };
+
   const capturePhoto = () => {
     if (!videoRef.current || videoRef.current.readyState < 2) return;
     const canvas = document.createElement("canvas");
@@ -159,7 +201,7 @@ export default function App() {
       if (blob) {
         setPhoto(URL.createObjectURL(blob));
         stopCamera();
-        setStatus("Photo captured. You can now submit.");
+        setStatus("Photo captured. Confirm or Retake.");
       }
     }, "image/jpeg");
   };
@@ -171,19 +213,58 @@ export default function App() {
     setIsCapturing(false);
   };
 
+  const retakePhoto = async () => {
+    setPhoto(null);
+    setStatus("Retake your photo");
+    await startCamera();
+  };
+
   const submitReport = async () => {
     if (!photo) {
       alert("Please capture a photo first!");
       return;
     }
-    console.log("Photo:", photo);
-    console.log("Location:", location || "Not available");
+
+    if (!location) {
+      alert("Location not available!");
+      return;
+    }
+
+    if (!description) {
+      alert("Please enter a description!");
+      return;
+    }
 
     setStatus("Submitting report...");
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setStatus("Report submitted successfully!");
-    setPhoto(null);
-    setLocation(null);
+
+    const formData = new FormData();
+    formData.append("description", description); // ✅ Dynamic description
+    formData.append("lat", location.latitude);
+    formData.append("lon", location.longitude);
+
+    const response = await fetch(photo);
+    const blob = await response.blob();
+    formData.append("file", blob, "report.jpg");
+
+    try {
+      const res = await fetch(${BACKEND_URL}/complaints/, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("Failed to submit report");
+
+      const data = await res.json();
+      console.log("Backend response:", data);
+      setSubmittedComplaint(data);
+      setStatus("Report submitted successfully!");
+      setPhoto(null);
+      setLocation(null);
+      setDescription(""); // clear input
+    } catch (err) {
+      console.error(err);
+      setStatus("Submission failed. Try again.");
+    }
   };
 
   useEffect(() => {
@@ -202,13 +283,21 @@ export default function App() {
           <h1>Sahaay - Quick Report</h1>
           <h4>YOUR VOICE FOR A BETTER CITY</h4>
 
+          <input
+            type="text"
+            placeholder="Describe the issue..."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+
+          {countdown && <div className="countdown">{countdown}</div>}
+
           {photo ? (
             <img src={photo} alt="Captured" className="media-preview" />
           ) : (
             <video ref={videoRef} className="media-preview" autoPlay muted />
           )}
 
-          {/* ✅ Show location and Google Map if available */}
           {location && (
             <>
               <div className="location-display">
@@ -232,14 +321,30 @@ export default function App() {
                 📷 Start Report
               </button>
             )}
-            {!isCapturing && photo && (
-              <button className="button" onClick={submitReport}>
-                ✅ Submit Report
-              </button>
+            {photo && (
+              <>
+                <button className="button" onClick={retakePhoto}>
+                  🔄 Retake
+                </button>
+                <button className="button" onClick={submitReport}>
+                  ✅ Submit
+                </button>
+              </>
             )}
           </div>
 
           <div className="status">{status}</div>
+
+          {submittedComplaint && (
+            <div style={{ marginTop: "1rem" }}>
+              <p><strong>ID:</strong> {submittedComplaint.id}</p>
+              <p><strong>Status:</strong> {submittedComplaint.status}</p>
+              <p><strong>Category:</strong> {submittedComplaint.category}</p>
+              {submittedComplaint.media_url && (
+                <img src={`${BACKEND_URL}${submittedComplaint.media_url}`} width="200" />
+              )}
+            </div>
+          )}
         </div>
       </div>
     </>
