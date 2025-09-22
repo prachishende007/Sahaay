@@ -1,4 +1,4 @@
-# Sahaay - One-Tap Assistance System
+# Sahaay - Your Voice For A Better City
 
 **Project ID:** PS 25031  
 **Hackathon:** Smart India Hackathon (SIH)
