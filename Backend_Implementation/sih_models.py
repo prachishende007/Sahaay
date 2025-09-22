@@ -20,7 +20,7 @@ import datetime
 # Step 2 - Defining the Models
 
 class Complaint(Base):
-  __tablename__ = "Complaints"  #Table name in database
+  __tablename__ = "complaints"  #Table name in database
   
   id = Column(String, primary_key = True, default = lambda:str(uuid.uuid4()) )
   description = Column(Text, nullable = False)
