@@ -28,7 +28,7 @@ class Complaint(Base):
   lon = Column(Float, nullable = False)
   category = Column(String, nullable=True)
 
-  status = Column(String, default= "Submitted")
+  status = Column(String, default= "submitted")
   created_at = Column(DateTime, default = datetime.datetime.utcnow)
   media_url = Column(String, nullable=True)  # NEW field
   assigned_to = Column(String, nullable=True)  # staff_id
