@@ -127,7 +127,7 @@ export default function App() {
   const [description, setDescription] = useState(""); // ✅ Added description state
   const [submittedComplaint, setSubmittedComplaint] = useState(null);
 
-  const BACKEND_URL = "http://127.0.0.1:8000"; // change to your server URL
+  const BACKEND_URL = "http://localhost:"; // change to your server URL
 
   const getLocation = () => {
     return new Promise((resolve) => {
