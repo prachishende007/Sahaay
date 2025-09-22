@@ -88,10 +88,10 @@ npm start<br>
 
 ## Project Status
 
--✅ Real-time detection working
--✅ Database integration functional
--✅ Admin dashboard operational
--🔄 Deployment pending
+-✅ Real-time detection working<br>
+-✅ Database integration functional<br>
+-✅ Admin dashboard operational<br>
+-🔄 Deployment pending<br>
 
 ---
 
