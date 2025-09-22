@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>SIH Demo Frontend</title>
+  </head>
+  <body>
+    <h2>Create Complaint</h2>
+    <form id="complaintForm">
+      Description:
+      <input type="text" id="description" value="Pothole on main road" /><br />
+      Latitude: <input type="number" id="lat" value="19.07" /><br />
+      Longitude: <input type="number" id="lon" value="72.88" /><br />
+      <button type="submit">Create Complaint</button>
+    </form>
+
+    <h2>Upload File</h2>
+    <input type="file" id="fileInput" />
+    <button onclick="uploadFile()">Upload File</button>
+
+    <h2>Categorize Complaint</h2>
+    <button onclick="categorizeComplaint()">Categorize</button>
+
+    <div id="output"></div>
+
+    <script>
+      let complaintId = "";
+
+      document
+        .getElementById("complaintForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const description = document.getElementById("description").value;
+          const lat = parseFloat(document.getElementById("lat").value);
+          const lon = parseFloat(document.getElementById("lon").value);
+
+          const response = await fetch("http://127.0.0.1:8000/complaints/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ description, lat, lon, media_url: null }),
+          });
+          const data = await response.json();
+          complaintId = data.id;
+          document.getElementById("output").innerText = JSON.stringify(
+            data,
+            null,
+            2
+          );
+        });
+
+      async function uploadFile() {
+        if (!complaintId) {
+          alert("Create complaint first!");
+          return;
+        }
+        const file = document.getElementById("fileInput").files[0];
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await fetch(
+          `http://127.0.0.1:8000/complaints/${complaintId}/upload`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+        const data = await response.json();
+        document.getElementById("output").innerText = JSON.stringify(
+          data,
+          null,
+          2
+        );
+      }
+
+      async function categorizeComplaint() {
+        if (!complaintId) {
+          alert("Create complaint first!");
+          return;
+        }
+
+        const response = await fetch(
+          `http://127.0.0.1:8000/complaints/${complaintId}/categorize`,
+          {
+            method: "POST",
+          }
+        );
+        const data = await response.json();
+        document.getElementById("output").innerText = JSON.stringify(
+          data,
+          null,
+          2
+        );
+      }
+    </script>
+  </body>
+</html>
