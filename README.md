@@ -23,7 +23,7 @@ This project was developed for the **Smart India Hackathon (SIH)** and focuses o
 
 ## Architecture
 
-![Architecture Diagram](./assets/architecture.png)  
+![Architecture Diagram](./Architechture_Diagram.png)  
 *The system captures video, processes it with the YOLO model, stores predictions in the database, and displays insights on the admin dashboard.*
 
 ---
