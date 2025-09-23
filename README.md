@@ -30,11 +30,11 @@ This project was developed for the **Smart India Hackathon (SIH)** and focuses o
 
 ## Tech Stack
 
-- **Backend:** FastAPI / Flask (depending on implementation)
-- **Frontend:** React.js / Angular (for Admin Dashboard)
+- **Backend:** FastAPI 
+- **Frontend:** React.js 
 - **AI/ML:** YOLO (Real-Time Object Detection)
-- **Database:** PostgreSQL / MySQL
-- **Deployment:** Docker (optional for containerization)
+- **Database:** PostgreSQL 
+- **Deployment:** Docker 
 
 ---
 
