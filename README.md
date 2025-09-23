@@ -1,11 +1,12 @@
 # Sahaay - Your Voice For A Better City
 
-**Project ID:** PS 25031  
+**Project ID:** SIH25031  
 **Hackathon:** Smart India Hackathon (SIH)
 
 ## Overview
 
-**Sahaay** is an AI-powered assistance system designed to provide real-time decision-making with just **one tap**. The system uses computer vision to detect relevant scenarios and immediately sends actionable information to an admin dashboard for monitoring and further processing.
+
+**Sahaay** is a crowdsourced civic issue reporting and resolution system  that uses a simple PWA and an AI Triage Engine to bridge the communication gap between citizens and municipal authorities, making the process fast, transparent, and efficient.
 
 This project was developed for the **Smart India Hackathon (SIH)** and focuses on simplifying complex tasks with minimal user interaction.
 
@@ -13,7 +14,7 @@ This project was developed for the **Smart India Hackathon (SIH)** and focuses o
 
 ## Features
 
-- **One-Tap Operation**: Users can trigger the system with a single action.
+- **One-Tap Report**: Users can report with a single tap.
 - **Real-Time Detection**: Uses **YOLO (You Only Look Once)** for object detection on live video streams.
 - **Database Integration**: Predicted results are stored in a backend database for record-keeping and analytics.
 - **Admin Dashboard**: Visualizes predictions and analytics, enabling efficient monitoring and decision-making.
