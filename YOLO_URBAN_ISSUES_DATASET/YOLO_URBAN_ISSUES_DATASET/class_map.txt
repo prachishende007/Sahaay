@@ -1,0 +1,9 @@
+0: Damaged concrete structures
+1: DamagedElectricalPoles
+2: DamagedRoadSigns
+3: DeadAnimalsPollution
+4: FallenTrees
+5: Garbage
+6: Graffitti
+7: IllegalParking
+8: Potholes and RoadCracks
