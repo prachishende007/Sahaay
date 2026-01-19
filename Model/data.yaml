@@ -1,0 +1,20 @@
+
+# YOLOv8 custom data configuration
+path:  D:\Projects\Sahaay\YOLO_URBAN_ISSUES_DATASET\YOLO_URBAN_ISSUES_DATASET\
+train: images/train
+val: images/val # <-- ENSURE THIS IS 'val'
+
+# Number of classes
+nc: 9
+
+# Class names based on your description
+names:
+  0: Damaged concrete structures
+  1: DamagedElectricalPoles
+  2: DamagedRoadSigns
+  3: DeadAnimalsPollution
+  4: FallenTrees
+  5: Garbage
+  6: Graffitti
+  7: IllegalParking
+  8: Potholes and RoadCracks
