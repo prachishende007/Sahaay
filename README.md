@@ -45,7 +45,7 @@ This project was developed for the **Smart India Hackathon (SIH)** and focuses o
   bash
   ```
   
-    git clone https://github.com/yourusername/sahaay.git
+    git clone https://github.com/prachishende007/sahaay.git
     cd sahaay
    ```
 
