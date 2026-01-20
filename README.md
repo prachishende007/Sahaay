@@ -42,10 +42,12 @@ This project was developed for the **Smart India Hackathon (SIH)** and focuses o
 
 1. Clone the repository:
    
-  bash```
+  bash
+  ```
   
     git clone https://github.com/yourusername/sahaay.git
-    cd sahaay```
+    cd sahaay
+   ```
 
 ---
 
