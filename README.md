@@ -41,6 +41,7 @@ This project was developed for the **Smart India Hackathon (SIH)** and focuses o
 ## Installation
 
 1. Clone the repository:
+   
   bash```
     git clone https://github.com/yourusername/sahaay.git<br>
     cd sahaay```
