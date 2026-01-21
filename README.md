@@ -51,10 +51,13 @@ This project was developed for the **Smart India Hackathon (SIH)** and focuses o
 
 ---
 
-## Install Python dependencies
-
-pip install -r requirements.txt<br>
-
+2. Install Python dependencies
+   
+  bash
+  ```
+  
+   pip install -r requirements.txt
+   ```
 ---
 
 ## Run the backend server
