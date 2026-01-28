@@ -11,7 +11,9 @@ __pycache__/
 uploads/
 
 # ML artifacts (optional)
-ml/
+# ML weights (never commit)
+*.pt
+
 
 # Editor
 .vscode/
