@@ -23,7 +23,7 @@ class Complaint(Base):
   __tablename__ = "complaints"  #Table name in database
   
   id = Column(String, primary_key = True, default = lambda:str(uuid.uuid4()) )
-  description = Column(Text, nullable = False)
+  # description = Column(Text, nullable = False)
   lat = Column(Float, nullable=False)
   lon = Column(Float, nullable = False)
   category = Column(String, nullable=True)

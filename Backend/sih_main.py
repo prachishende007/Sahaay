@@ -8,6 +8,12 @@ from sih_models import Complaint
 from sih_schemas import ComplaintResponse
 from sih_supabase import supabase
 
+from fastapi import FastAPI, UploadFile, File
+import os
+import shutil
+
+from ml.yolo_service import detect_on_image
+
 # ------------------ FastAPI App ------------------
 app = FastAPI(title="SIH Backend API")
 
@@ -45,7 +51,7 @@ def health_check(db: Session = Depends(get_db)):
 # ------------------ Create Complaint ------------------
 @app.post("/complaints/", response_model=ComplaintResponse)
 def create_complaint(
-    description: str = Form(...),
+    # description: str = Form(...),
     lat: float = Form(...),
     lon: float = Form(...),
     file: UploadFile = File(...),
@@ -54,7 +60,7 @@ def create_complaint(
     # 1️⃣ Create complaint in DB
     new_complaint = sih_crud.create_complaint(
         db=db,
-        description=description,
+        # description=description,
         lat=lat,
         lon=lon,
         media_url=None
@@ -64,6 +70,13 @@ def create_complaint(
     file_ext = file.filename.split(".")[-1]
     file_name = f"{new_complaint.id}.{file_ext}"
     file_bytes = file.file.read()
+    
+    
+    # temporary local save for ML
+    local_path = os.path.join("uploads", file_name)
+    with open(local_path, "wb") as f:
+        f.write(file_bytes)
+
     bucket = "Sahaay_Complaints-Media"
 
     try:
@@ -80,18 +93,41 @@ def create_complaint(
     # 3️⃣ Public URL
     public_url = supabase.storage.from_(bucket).get_public_url(file_name)
     new_complaint.media_url = public_url
+    
+    # ✅ ML detection
+    detections = detect_on_image(local_path)
+    print("ML DETECTIONS:", detections)
 
-    # 4️⃣ Auto category
-    desc = description.lower()
-    if "road" in desc or "pothole" in desc:
+
+    # ✅ Auto category from ML output
+    labels = [d["label"].lower() for d in detections]
+
+    if "pothole" in labels:
         new_complaint.category = "Road Issue"
-    elif "water" in desc:
-        new_complaint.category = "Water Supply"
+    elif "garbage" in labels:
+        new_complaint.category = "Garbage Issue"
+    elif "fallentrees" in labels:
+        new_complaint.category = "Fallen Tree"
     else:
         new_complaint.category = "Other"
 
+
+    # 4️⃣ Auto category
+    # desc = description.lower()
+    # if "road" in desc or "pothole" in desc:
+    #     new_complaint.category = "Road Issue"
+    # elif "water" in desc:
+    #     new_complaint.category = "Water Supply"
+    # else:
+    #     new_complaint.category = "Other"
+
     db.commit()
     db.refresh(new_complaint)
+    
+    # ✅ Cleanup temporary file
+    if os.path.exists(local_path):
+        os.remove(local_path)
+
     return new_complaint
 
 # ------------------ Get Complaint ------------------
@@ -178,3 +214,19 @@ def analytics_summary(db: Session = Depends(get_db)):
         "in_progress": in_progress,
         "by_category": by_category
     }
+
+
+#Model Integration Code
+
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.post("/detect-image")
+async def detect_image(file: UploadFile = File(...)):
+    file_path = os.path.join(UPLOAD_DIR, file.filename)
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    detections = detect_on_image(file_path)
+    return {"detections": detections}

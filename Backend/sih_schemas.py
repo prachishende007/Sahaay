@@ -8,7 +8,7 @@ from datetime import datetime
 # Optional → allows some fields to be empty.
 
 class ComplaintCreate(BaseModel):
-  description:str
+  # description:str
   lat:float
   lon:float
   media_url: str  # required now
