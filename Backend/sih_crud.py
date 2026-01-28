@@ -7,10 +7,11 @@ import uuid
 # Complaint → our model (table).
 
 # uuid → to generate unique complaint IDs.
-def create_complaint(db: Session, description: str, lat: float, lon: float, media_url: str = None, category: str = None):
+def create_complaint(db: Session, description: str = "", lat: float = 0.0, lon: float = 0.0, media_url: str = None, category: str = None):
+
     new_complaint = Complaint(
         id=str(uuid.uuid4()),
-        description=description,
+        # description=description,
         lat=lat,
         lon=lon,
         media_url=media_url,
