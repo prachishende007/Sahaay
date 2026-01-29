@@ -71,7 +71,6 @@ def create_complaint(
     file_name = f"{new_complaint.id}.{file_ext}"
     file_bytes = file.file.read()
     
-    
     # temporary local save for ML
     local_path = os.path.join("uploads", file_name)
     with open(local_path, "wb") as f:
