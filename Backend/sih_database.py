@@ -1,17 +1,21 @@
 import os
-from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    raise ValueError("DATABASE_URL is missing in .env file")
+    raise RuntimeError("DATABASE_URL environment variable is not set")
 
 connect_args = {}
-if "sqlite" in DATABASE_URL:
+
+# SQLite (local dev)
+if DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
+
+# PostgreSQL / Supabase (production)
+else:
+    connect_args = {"sslmode": "require"}
 
 engine = create_engine(
     DATABASE_URL,
@@ -28,5 +32,4 @@ SessionLocal = sessionmaker(
 
 Base = declarative_base()
 
-print("🚨 DATABASE_URL USED BY BACKEND:", DATABASE_URL)
-print("ENGINE:", engine.dialect.name)
+print("✅ Database engine initialized:", engine.dialect.name)
