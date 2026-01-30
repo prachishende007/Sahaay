@@ -99,7 +99,7 @@ def create_complaint(
         media_url=None
     )
 
-    # 2️⃣ Validate file type
+    # 2️⃣ Validate file
     file_ext = file.filename.split(".")[-1].lower()
     if file_ext not in ["jpg", "jpeg", "png"]:
         raise HTTPException(
@@ -132,7 +132,7 @@ def create_complaint(
         supabase.storage.from_(bucket).get_public_url(file_name)
     )
 
-    # 5️⃣ Initial category (non-blocking)
+    # 5️⃣ Initial category (fast response)
     new_complaint.category = "processing"
     db.commit()
     db.refresh(new_complaint)
@@ -218,7 +218,9 @@ def add_feedback(
 @app.get("/analytics/summary")
 def analytics_summary(db: Session = Depends(get_db)):
     total = db.query(Complaint).count()
-    resolved = db.query(Complaint).filter(Complaint.status == "resolved").count()
+    resolved = db.query(Complaint).filter(
+        Complaint.status == "resolved"
+    ).count()
     in_progress = db.query(Complaint).filter(
         Complaint.status == "in_progress"
     ).count()
