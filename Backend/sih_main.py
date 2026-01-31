@@ -162,7 +162,7 @@ def get_complaint(complaint_id: str, db: Session = Depends(get_db)):
     return complaint
 
 # ------------------ Get All Complaints ------------------
-@app.get("/complaints/", response_model=list[ComplaintResponse])
+@app.get("/complaints/")
 def get_all_complaints(db: Session = Depends(get_db)):
     return sih_crud.get_all_complaints(db)
 
