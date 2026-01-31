@@ -79,7 +79,7 @@ export default function MapView({ complaints = [] }) {
         {complaints.map((c) => (
           <Marker
             key={c.id}
-            position={[c.lat, c.lng]}
+            position={[c.lat, c.lon]}
             icon={getIconByPriority(c.priority)}
           >
             <Popup>

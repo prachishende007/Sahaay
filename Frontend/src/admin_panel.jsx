@@ -7,7 +7,8 @@ import MapView from "./components/admin_ui/MapView";
 import ComplaintsTable from "./components/admin_ui/ComplaintsTable";
 import ComplaintForm from "./components/admin_ui/ComplaintForm";
 
-const API = "http://localhost:8000";
+/* 🔥 FIXED API BASE */
+const API = "https://sahaay-backend.onrender.com";
 
 export default function Admin_Panel() {
   /* ================= STATE ================= */
@@ -20,7 +21,7 @@ export default function Admin_Panel() {
   /* ================= API CALLS ================= */
   const fetchComplaints = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/complaints`);
+      const res = await axios.get(`${API}/complaints/`);
       setComplaints(res.data);
     } catch (err) {
       console.error("Error fetching complaints:", err);
@@ -29,7 +30,7 @@ export default function Admin_Panel() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/analytics`);
+      const res = await axios.get(`${API}/analytics/summary`);
       setStats(res.data);
     } catch (err) {
       console.error("Error fetching analytics:", err);
@@ -60,13 +61,11 @@ export default function Admin_Panel() {
   /* ================= UI ================= */
   return (
     <div className="app">
-      {/* MOBILE OVERLAY */}
       <div
         className={`overlay ${sidebarOpen ? "show" : ""}`}
         onClick={() => setSidebarOpen(false)}
       />
 
-      {/* SIDEBAR */}
       <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
         <Sidebar
           activePage={activePage}
@@ -75,24 +74,16 @@ export default function Admin_Panel() {
         />
       </aside>
 
-      {/* MAIN */}
       <div className="main">
-        {/* TOPBAR */}
         <div className="topbar">
-          <span
-            className="hamburger"
-            onClick={() => setSidebarOpen(true)}
-          >
+          <span className="hamburger" onClick={() => setSidebarOpen(true)}>
             &#9776;
           </span>
           <Topbar stats={stats} />
         </div>
 
-        {/* CONTENT */}
         <div className="content">
-          {loading && (
-            <div className="loading-state">Loading data...</div>
-          )}
+          {loading && <div className="loading-state">Loading data...</div>}
 
           {!loading && activePage === "reports" && (
             <div className="page-section">

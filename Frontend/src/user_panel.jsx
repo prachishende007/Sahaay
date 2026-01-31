@@ -145,70 +145,6 @@ const AppStyles = () => (
       height: 60px;
     }
 
-    .capture-button.recording {
-      border-color: #ff4757;
-    }
-
-    .capture-button.recording::after {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      background: #ff4757;
-    }
-
-    .recording-ui {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      pointer-events: none;
-    }
-
-    .recording-indicator {
-      position: absolute;
-      top: 1.5rem;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(255, 71, 87, 0.95);
-      backdrop-filter: blur(10px);
-      color: white;
-      padding: 0.6rem 1.2rem;
-      border-radius: 25px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-      font-size: 0.9rem;
-    }
-
-    .rec-dot {
-      width: 10px;
-      height: 10px;
-      background: white;
-      border-radius: 50%;
-      animation: pulse-dot 1.5s ease infinite;
-    }
-
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.8); }
-    }
-
-    .progress-ring {
-      position: absolute;
-      bottom: 3rem;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 90px;
-      height: 90px;
-    }
-
-    .progress-ring-circle {
-      transform: rotate(-90deg);
-      transform-origin: 50% 50%;
-    }
-
     /* Preview Screen */
     .preview-screen {
       position: absolute;
@@ -774,22 +710,16 @@ const AppStyles = () => (
   `}</style>
 );
 
-
-export default function userPanel() {
-    
+export default function App() {
   const videoRef = useRef(null);
-  const previewVideoRef = useRef(null);
+  const previewRef = useRef(null);
   const mediaStreamRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const recordedChunksRef = useRef([]);
-  const recordingTimerRef = useRef(null);
   const touchStartXRef = useRef(0);
   const isDraggingRef = useRef(false);
 
   const [currentScreen, setCurrentScreen] = useState(1);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingDuration, setRecordingDuration] = useState(0);
-  const [recordedVideo, setRecordedVideo] = useState(null);
+  const [capturedBlob, setCapturedBlob] = useState(null);
+  const [capturedUrl, setCapturedUrl] = useState(null);
   const [location, setLocation] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [reports, setReports] = useState([
@@ -824,10 +754,7 @@ export default function userPanel() {
   const [userCity, setUserCity] = useState('Mumbai');
   const [showWelcome, setShowWelcome] = useState(true);
 
-  const MAX_DURATION = 30;
-
   useEffect(() => {
-    // Only init camera after welcome is dismissed
     if (!showWelcome) {
       initCamera();
       getLocation();
@@ -837,8 +764,7 @@ export default function userPanel() {
   const initCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: true 
+        video: { width: { ideal: 1280 }, height: { ideal: 720 } }
       });
       
       mediaStreamRef.current = stream;
@@ -869,83 +795,78 @@ export default function userPanel() {
     }
   };
 
-  const startRecording = () => {
-    if (!mediaStreamRef.current) return;
-
-    recordedChunksRef.current = [];
-    setIsRecording(true);
-    setRecordingDuration(0);
-
+  // Capture single image frame from video stream on tap
+  const captureImage = () => {
+    if (!videoRef.current) return;
     try {
-      const recorder = new MediaRecorder(mediaStreamRef.current, {
-        mimeType: 'video/webm'
-      });
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) recordedChunksRef.current.push(e.data);
-      };
-
-      recorder.onstop = () => {
-        const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
-        setRecordedVideo(blob);
-      };
-
-      recorder.start();
-      mediaRecorderRef.current = recorder;
-
-      const startTime = Date.now();
-      recordingTimerRef.current = setInterval(() => {
-        const elapsed = (Date.now() - startTime) / 1000;
-        setRecordingDuration(elapsed);
-        if (elapsed >= MAX_DURATION) {
-          stopRecording();
-        }
-      }, 100);
+      const video = videoRef.current;
+      const w = video.videoWidth || 1280;
+      const h = video.videoHeight || 720;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, w, h);
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        setCapturedBlob(blob);
+        const url = URL.createObjectURL(blob);
+        setCapturedUrl(url);
+      }, 'image/jpeg', 0.92);
     } catch (err) {
-      console.error('Recording error:', err);
-      setIsRecording(false);
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      clearInterval(recordingTimerRef.current);
-      setIsRecording(false);
+      console.error('Capture error:', err);
     }
   };
 
   const handleRetake = () => {
-    setRecordedVideo(null);
-    setRecordingDuration(0);
+    if (capturedUrl) URL.revokeObjectURL(capturedUrl);
+    setCapturedBlob(null);
+    setCapturedUrl(null);
   };
 
-  const handleSendReport = () => {
-    if (!recordedVideo) return;
-    
+  const handleSendReport = async () => {
+    if (!capturedBlob) return;
     setIsUploading(true);
-    
-    // Simulate upload
-    setTimeout(() => {
+
+    // Backend API endpoint
+    const API_BASE = "https://sahaay-backend.onrender.com/complaints/";
+    const form = new FormData();
+    form.append('file', capturedBlob, 'report.jpg');
+    if (location) {
+      form.append('lat', location.latitude);
+      form.append('lon', location.longitude);
+    } else {
+      form.append('lat', 0);
+      form.append('lon', 0);
+    }
+
+    try {
+      const res = await fetch(API_BASE, { method: 'POST', body: form });
+      if (!res.ok) throw new Error('Upload failed');
       setUploadSuccess(true);
-      
+      try {
+        const data = await res.json();
+        if (data && data.id) setReports((r) => [data, ...r]);
+      } catch (e) {}
+    } catch (err) {
+      console.error('Upload error:', err);
+    } finally {
       setTimeout(() => {
-        setRecordedVideo(null);
         setIsUploading(false);
         setUploadSuccess(false);
-        setRecordingDuration(0);
+        handleRetake();
       }, 1500);
-    }, 2000);
+    }
   };
 
   const handleTouchStart = (e) => {
-    if (recordedVideo || selectedReport) return;
+    if (capturedBlob || selectedReport) return;
     touchStartXRef.current = e.touches[0].clientX;
     isDraggingRef.current = true;
   };
 
   const handleTouchEnd = (e) => {
-    if (!isDraggingRef.current || recordedVideo || selectedReport) return;
+    if (!isDraggingRef.current || capturedBlob || selectedReport) return;
     isDraggingRef.current = false;
     
     const diff = e.changedTouches[0].clientX - touchStartXRef.current;
@@ -959,13 +880,13 @@ export default function userPanel() {
   };
 
   const handleMouseDown = (e) => {
-    if (recordedVideo || selectedReport) return;
+    if (capturedBlob || selectedReport) return;
     touchStartXRef.current = e.clientX;
     isDraggingRef.current = true;
   };
 
   const handleMouseUp = (e) => {
-    if (!isDraggingRef.current || recordedVideo || selectedReport) return;
+    if (!isDraggingRef.current || capturedBlob || selectedReport) return;
     isDraggingRef.current = false;
     
     const diff = e.clientX - touchStartXRef.current;
@@ -992,283 +913,252 @@ export default function userPanel() {
     return 'priority-low';
   };
 
-  const progressPercent = (recordingDuration / MAX_DURATION) * 100;
-  const circumference = 2 * Math.PI * 40;
-  const strokeDashoffset = circumference - (progressPercent / 100) * circumference;
-
   useEffect(() => {
-    if (recordedVideo && previewVideoRef.current) {
-      previewVideoRef.current.src = URL.createObjectURL(recordedVideo);
-    }
-  }, [recordedVideo]);
+    if (capturedUrl && previewRef.current) previewRef.current.src = capturedUrl;
+  }, [capturedUrl]);
 
-
-    return(
-        <>  
-            <AppStyles />
-            <div 
-                className="app" 
-                onTouchStart={handleTouchStart} 
-                onTouchEnd={handleTouchEnd}
-                onMouseDown={handleMouseDown}
-                onMouseUp={handleMouseUp}
-            >
-                <div className="screens-container" style={{ transform: `translateX(-${currentScreen * 100}vw)` }}>
-                
-                {/* Reports Screen */}
-                <div className="screen reports-screen">
-                    <div className="reports-header">
-                    <h2>My Reports</h2>
-                    </div>
-                    {reports.length === 0 ? (
-                    <div className="empty-state">
-                        <div className="empty-icon">📝</div>
-                        <p>No reports yet</p>
-                        <p style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>
-                        Swipe left to start reporting
-                        </p>
-                    </div>
-                    ) : (
-                    <div className="reports-list">
-                        {reports.map((report) => (
-                        <div 
-                            key={report.id} 
-                            className="report-item"
-                            onClick={() => setSelectedReport(report)}
-                        >
-                            <div className={`status-circle ${getStatusClass(report.status)}`}></div>
-                            <div className="report-info">
-                            <div className="report-date">
-                                {new Date(report.created_at).toLocaleDateString('en-US', { 
-                                month: 'short', 
-                                day: 'numeric' 
-                                })}
-                            </div>
-                            <div className="report-title">
-                                {report.category}
-                            </div>
-                            </div>
-                        </div>
-                        ))}
-                    </div>
-                    )}
-                </div>
-
-                {/* Camera Screen */}
-                <div className="screen camera-screen">
-                    {cameraError ? (
-                    <div className="camera-placeholder">
-                        <div className="camera-placeholder-icon">📷</div>
-                        <p>Camera Unavailable</p>
-                        <p style={{ fontSize: '0.85rem', marginTop: '0.5rem', opacity: 0.7 }}>
-                        Demo mode - normally shows live camera feed
-                        </p>
-                    </div>
-                    ) : (
-                    <video ref={videoRef} className="camera-preview" autoPlay muted playsInline />
-                    )}
-                    
-                    <div className="camera-overlay">
-                    <div className="top-bar">
-                        <div className="location-pill">
-                        {location ? '📍 Location Ready' : '📍 Getting location...'}
-                        </div>
-                    </div>
-
-                    <div className="capture-area">
-                        <div className="swipe-hints">
-                        <span>← Reports</span>
-                        <span>Profile →</span>
-                        </div>
-                        
-                        <div
-                        className={`capture-button ${isRecording ? 'recording' : ''}`}
-                        onMouseDown={startRecording}
-                        onMouseUp={stopRecording}
-                        onMouseLeave={stopRecording}
-                        onTouchStart={(e) => { e.preventDefault(); startRecording(); }}
-                        onTouchEnd={(e) => { e.preventDefault(); stopRecording(); }}
-                        />
-                    </div>
-                    </div>
-
-                    {isRecording && (
-                    <div className="recording-ui">
-                        <div className="recording-indicator">
-                        <div className="rec-dot"></div>
-                        {Math.floor(recordingDuration)}s / {MAX_DURATION}s
-                        </div>
-                        <svg className="progress-ring">
-                        <circle
-                            className="progress-ring-circle"
-                            stroke="#ff4757"
-                            strokeWidth="4"
-                            fill="transparent"
-                            r="40"
-                            cx="45"
-                            cy="45"
-                            strokeDasharray={circumference}
-                            strokeDashoffset={strokeDashoffset}
-                        />
-                        </svg>
-                    </div>
-                    )}
-
-                    {recordedVideo && (
-                    <div className="preview-screen">
-                        <video ref={previewVideoRef} className="preview-video" controls autoPlay loop />
-                        <div className="preview-controls">
-                        <button className="btn btn-retake" onClick={handleRetake}>
-                            🔄 Retake
-                        </button>
-                        <button className="btn btn-send" onClick={handleSendReport}>
-                            Send Report
-                        </button>
-                        </div>
-                    </div>
-                    )}
-                </div>
-
-                {/* About Screen */}
-                <div className="screen profile-screen">
-                    <div className="profile-content">
-                    <div className="about-section">
-                        <h3>About Sahaay</h3>
-                        <p>
-                        Your voice for a better city. Report civic issues with video evidence. 
-                        AI categorizes and routes your reports to the right departments.
-                        </p>
-                    </div>
-                    </div>
-                </div>
-                </div>
-
-                {/* Navigation Dots */}
-                {!recordedVideo && !selectedReport && (
-                <div className="nav-dots">
-                    <div 
-                    className={`nav-dot ${currentScreen === 0 ? 'active' : ''}`}
-                    onClick={() => setCurrentScreen(0)}
-                    />
-                    <div 
-                    className={`nav-dot ${currentScreen === 1 ? 'active' : ''}`}
-                    onClick={() => setCurrentScreen(1)}
-                    />
-                    <div 
-                    className={`nav-dot ${currentScreen === 2 ? 'active' : ''}`}
-                    onClick={() => setCurrentScreen(2)}
-                    />
-                </div>
-                )}
-
-                {/* Report Detail Modal */}
-                <div className={`detail-screen ${selectedReport ? 'visible' : ''}`}>
-                {selectedReport && (
-                    <>
-                    <div className="detail-header">
-                        <button className="back-btn" onClick={() => setSelectedReport(null)}>←</button>
-                        <h2>Report Details</h2>
-                    </div>
-                    <div className="detail-content">
-                        <div className="detail-info">
-                        <div className="detail-section">
-                            <div className="detail-label">Category</div>
-                            <div className="detail-value">{selectedReport.category}</div>
-                        </div>
-
-                        <div className="detail-section">
-                            <div className="detail-label">Priority</div>
-                            <span className={`priority-badge ${getPriorityClass(selectedReport.priority)}`}>
-                            {selectedReport.priority}
-                            </span>
-                        </div>
-
-                        <div className="detail-section">
-                            <div className="detail-label">Status</div>
-                            <div className="status-badge">
-                            <div className={`status-circle ${getStatusClass(selectedReport.status)}`}></div>
-                            {selectedReport.status}
-                            </div>
-                        </div>
-
-                        <div className="divider"></div>
-
-                        <div className="detail-section">
-                            <div className="detail-label">AI Analysis</div>
-                            <div className="detail-value">
-                            {selectedReport.ai_interpretation}
-                            </div>
-                        </div>
-
-                        <div className="detail-section">
-                            <div className="detail-label">Submitted</div>
-                            <div className="detail-value">
-                            {new Date(selectedReport.created_at).toLocaleString()}
-                            </div>
-                        </div>
-                        </div>
-                    </div>
-                    </>
-                )}
-                </div>
-
-                {/* Loading Overlay */}
-                {isUploading && !uploadSuccess && (
-                <div className="loading-overlay">
-                    <div className="spinner"></div>
-                    <div className="loading-text">Uploading report...</div>
-                </div>
-                )}
-
-                {/* Success Overlay */}
-                {uploadSuccess && (
-                <div className="success-overlay">
-                    <div className="success-icon">✓</div>
-                    <div className="success-text">Report Submitted!</div>
-                    <div className="success-subtext">AI is analyzing your report</div>
-                </div>
-                )}
-
-                {/* Welcome Overlay */}
-                {showWelcome && (
-                <div className="welcome-overlay">
-                    <div className="welcome-content">
-                    <h1 className="welcome-title">Welcome to Sahaay</h1>
-                    <p className="welcome-subtitle">Your voice for a better city</p>
-                    
-                    <div className="welcome-steps">
-                        <div className="welcome-step">
-                        <div className="step-number">1</div>
-                        <div className="step-text">
-                            <div className="step-title">Record a Video</div>
-                            <div className="step-desc">Press and hold the button to record your civic issue</div>
-                        </div>
-                        </div>
-                        
-                        <div className="welcome-step">
-                        <div className="step-number">2</div>
-                        <div className="step-text">
-                            <div className="step-title">Describe the Problem</div>
-                            <div className="step-desc">Show the issue clearly - potholes, garbage, broken lights, etc.</div>
-                        </div>
-                        </div>
-                        
-                        <div className="welcome-step">
-                        <div className="step-number">3</div>
-                        <div className="step-text">
-                            <div className="step-title">Submit Report</div>
-                            <div className="step-desc">AI will analyze and route to the right department</div>
-                        </div>
-                        </div>
-                    </div>
-                    
-                    <button className="welcome-btn" onClick={() => setShowWelcome(false)}>
-                        Get Started
-                    </button>
-                    </div>
-                </div>
-                )}
+  return (
+    <>
+      <AppStyles />
+      <div 
+        className="app" 
+        onTouchStart={handleTouchStart} 
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+      >
+        <div className="screens-container" style={{ transform: `translateX(-${currentScreen * 100}vw)` }}>
+          
+          {/* Reports Screen */}
+          <div className="screen reports-screen">
+            <div className="reports-header">
+              <h2>My Reports</h2>
             </div>
-        </>
-    );
+            {reports.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">📝</div>
+                <p>No reports yet</p>
+                <p style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>
+                  Swipe left to start reporting
+                </p>
+              </div>
+            ) : (
+              <div className="reports-list">
+                {reports.map((report) => (
+                  <div 
+                    key={report.id} 
+                    className="report-item"
+                    onClick={() => setSelectedReport(report)}
+                  >
+                    <div className={`status-circle ${getStatusClass(report.status)}`}></div>
+                    <div className="report-info">
+                      <div className="report-date">
+                        {new Date(report.created_at).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric' 
+                        })}
+                      </div>
+                      <div className="report-title">
+                        {report.category}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Camera Screen */}
+          <div className="screen camera-screen">
+            {cameraError ? (
+              <div className="camera-placeholder">
+                <div className="camera-placeholder-icon">📷</div>
+                <p>Camera Unavailable</p>
+                <p style={{ fontSize: '0.85rem', marginTop: '0.5rem', opacity: 0.7 }}>
+                  Demo mode - normally shows live camera feed
+                </p>
+              </div>
+            ) : (
+              <video ref={videoRef} className="camera-preview" autoPlay muted playsInline />
+            )}
+            
+            <div className="camera-overlay">
+              <div className="top-bar">
+                <div className="location-pill">
+                  {location ? '📍 Location Ready' : '📍 Getting location...'}
+                </div>
+              </div>
+
+              <div className="capture-area">
+                <div className="swipe-hints">
+                  <span>← Reports</span>
+                  <span>Profile →</span>
+                </div>
+                
+                <div
+                  className="capture-button"
+                  onClick={captureImage}
+                  onTouchEnd={(e) => { e.preventDefault(); captureImage(); }}
+                  title="Tap to capture image"
+                />
+              </div>
+            </div>
+
+            {capturedBlob && (
+              <div className="preview-screen">
+                <img ref={previewRef} src={capturedUrl} alt="preview" className="preview-video" />
+                <div className="preview-controls">
+                  <button className="btn btn-retake" onClick={handleRetake}>
+                    🔄 Retake
+                  </button>
+                  <button className="btn btn-send" onClick={handleSendReport}>
+                     Send Report
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* About Screen */}
+          <div className="screen profile-screen">
+            <div className="profile-content">
+              <div className="about-section">
+                <h3>About Sahaay</h3>
+                <p>
+                  Your voice for a better city. Report civic issues with photo evidence. 
+                  AI categorizes and routes your reports to the right departments.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation Dots */}
+        {!capturedBlob && !selectedReport && (
+          <div className="nav-dots">
+            <div 
+              className={`nav-dot ${currentScreen === 0 ? 'active' : ''}`}
+              onClick={() => setCurrentScreen(0)}
+            />
+            <div 
+              className={`nav-dot ${currentScreen === 1 ? 'active' : ''}`}
+              onClick={() => setCurrentScreen(1)}
+            />
+            <div 
+              className={`nav-dot ${currentScreen === 2 ? 'active' : ''}`}
+              onClick={() => setCurrentScreen(2)}
+            />
+          </div>
+        )}
+
+        {/* Report Detail Modal */}
+        <div className={`detail-screen ${selectedReport ? 'visible' : ''}`}>
+          {selectedReport && (
+            <>
+              <div className="detail-header">
+                <button className="back-btn" onClick={() => setSelectedReport(null)}>←</button>
+                <h2>Report Details</h2>
+              </div>
+              <div className="detail-content">
+                <div className="detail-info">
+                  <div className="detail-section">
+                    <div className="detail-label">Category</div>
+                    <div className="detail-value">{selectedReport.category}</div>
+                  </div>
+
+                  <div className="detail-section">
+                    <div className="detail-label">Priority</div>
+                    <span className={`priority-badge ${getPriorityClass(selectedReport.priority)}`}>
+                      {selectedReport.priority}
+                    </span>
+                  </div>
+
+                  <div className="detail-section">
+                    <div className="detail-label">Status</div>
+                    <div className="status-badge">
+                      <div className={`status-circle ${getStatusClass(selectedReport.status)}`}></div>
+                      {selectedReport.status}
+                    </div>
+                  </div>
+
+                  <div className="divider"></div>
+
+                  <div className="detail-section">
+                    <div className="detail-label">AI Analysis</div>
+                    <div className="detail-value">
+                      {selectedReport.ai_interpretation}
+                    </div>
+                  </div>
+
+                  <div className="detail-section">
+                    <div className="detail-label">Submitted</div>
+                    <div className="detail-value">
+                      {new Date(selectedReport.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Loading Overlay */}
+        {isUploading && !uploadSuccess && (
+          <div className="loading-overlay">
+            <div className="spinner"></div>
+            <div className="loading-text">Uploading report...</div>
+          </div>
+        )}
+
+        {/* Success Overlay */}
+        {uploadSuccess && (
+          <div className="success-overlay">
+            <div className="success-icon">✓</div>
+            <div className="success-text">Report Submitted!</div>
+            <div className="success-subtext">AI is analyzing your report</div>
+          </div>
+        )}
+
+        {/* Welcome Overlay */}
+        {showWelcome && (
+          <div className="welcome-overlay">
+            <div className="welcome-content">
+              <h1 className="welcome-title">Welcome to Sahaay</h1>
+              <p className="welcome-subtitle">Your voice for a better city</p>
+              
+              <div className="welcome-steps">
+                <div className="welcome-step">
+                  <div className="step-number">1</div>
+                  <div className="step-text">
+                    <div className="step-title">Capture Photo</div>
+                    <div className="step-desc">Tap the button to capture your civic issue</div>
+                  </div>
+                </div>
+                
+                <div className="welcome-step">
+                  <div className="step-number">2</div>
+                  <div className="step-text">
+                    <div className="step-title">Show the Problem</div>
+                    <div className="step-desc">Photos of potholes, garbage, broken lights, etc.</div>
+                  </div>
+                </div>
+                
+                <div className="welcome-step">
+                  <div className="step-number">3</div>
+                  <div className="step-text">
+                    <div className="step-title">Submit Report</div>
+                    <div className="step-desc">AI will analyze and route to the right department</div>
+                  </div>
+                </div>
+              </div>
+              
+              <button className="welcome-btn" onClick={() => setShowWelcome(false)}>
+                Get Started
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
 }
