@@ -125,6 +125,7 @@ export default function ComplaintForm({ refreshComplaints }) {
             onChange={(e) => setDescription(e.target.value)}
           />
         </label>
+        
 
         <label>
           Upload Image (optional)

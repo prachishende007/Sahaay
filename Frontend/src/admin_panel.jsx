@@ -50,7 +50,7 @@ export default function Admin_Panel() {
     return () => clearInterval(interval);
   }, [fetchAll]);
 
-  /* ================= AFTER COMPLAINT SUBMIT ================= */
+  
   const addNewComplaint = (newComplaint) => {
     if (newComplaint) {
       setComplaints((prev) => [newComplaint, ...prev]);

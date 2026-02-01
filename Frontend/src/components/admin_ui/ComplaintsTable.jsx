@@ -1,5 +1,21 @@
 import React, { useState } from "react";
 
+const formatIST = (utcString) => {
+  if (!utcString) return "-";
+
+  const date = new Date(utcString);
+
+  return date.toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
 export default function ComplaintsTable({ complaints = [] }) {
   const [statusFilter, setStatusFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
@@ -60,11 +76,7 @@ export default function ComplaintsTable({ complaints = [] }) {
           <tbody>
             {filteredComplaints.map((c) => (
               <tr key={c.id}>
-                <td>
-                  {c.createdAt
-                    ? new Date(c.createdAt).toLocaleString()
-                    : "—"}
-                </td>
+                <td>{formatIST(c.created_at)}</td>
 
                 <td>{c.category}</td>
 
