@@ -795,7 +795,7 @@ export default function App() {
     }
   };
 
-  // Capture single image frame from video stream on tap
+  // Capture single image frame 
   const captureImage = () => {
     if (!videoRef.current) return;
     try {

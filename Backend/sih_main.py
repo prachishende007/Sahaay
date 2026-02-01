@@ -1,30 +1,41 @@
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
+from fastapi import (
+    FastAPI, Depends, HTTPException,
+    UploadFile, File, Form, BackgroundTasks
+)
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+import os
+import shutil
+
 import sih_crud
 from sih_database import SessionLocal
 from sih_models import Complaint
 from sih_schemas import ComplaintResponse
 from sih_supabase import supabase
-
-from fastapi import FastAPI, UploadFile, File
-import os
-import shutil
-
 from ml.yolo_service import detect_on_image
 
-# ------------------ FastAPI App ------------------
+# ------------------ App ------------------
 app = FastAPI(title="SIH Backend API")
 
 # ------------------ CORS ------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # dev only
+    allow_origins=[
+        "http://localhost:5174",  # admin panel
+        "http://localhost:5173",  # vite default
+        "http://localhost:3000",  # fallback
+        "https://sahaay-backend.onrender.com"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ------------------ Upload Dir ------------------
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # ------------------ DB Dependency ------------------
 def get_db():
@@ -48,84 +59,97 @@ def health_check(db: Session = Depends(get_db)):
     except Exception as e:
         return {"status": "error", "details": str(e)}
 
+# ------------------ Background ML Task ------------------
+def run_ml_and_update(db_session_factory, complaint_id: str, image_path: str):
+    db = db_session_factory()
+    try:
+        detections = detect_on_image(image_path)
+        print("🧠 ML DETECTIONS:", detections)
+
+        labels = [d["label"].lower() for d in detections]
+
+        complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
+        if not complaint:
+            return
+
+        if "pothole" in labels:
+            complaint.category = "Road Issue"
+        elif "garbage" in labels:
+            complaint.category = "Garbage Issue"
+        elif "fallentrees" in labels:
+            complaint.category = "Fallen Tree"
+        else:
+            complaint.category = "Other"
+
+        db.commit()
+
+    finally:
+        db.close()
+        if os.path.exists(image_path):
+            os.remove(image_path)
+
 # ------------------ Create Complaint ------------------
 @app.post("/complaints/", response_model=ComplaintResponse)
 def create_complaint(
-    # description: str = Form(...),
     lat: float = Form(...),
     lon: float = Form(...),
     file: UploadFile = File(...),
+    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db)
 ):
-    # 1️⃣ Create complaint in DB
+    # 1️⃣ Create DB entry
     new_complaint = sih_crud.create_complaint(
         db=db,
-        # description=description,
         lat=lat,
         lon=lon,
         media_url=None
     )
 
-    # 2️⃣ Upload media to Supabase
-    file_ext = file.filename.split(".")[-1]
+    # 2️⃣ Validate file
+    file_ext = file.filename.split(".")[-1].lower()
+    if file_ext not in ["jpg", "jpeg", "png"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Only JPG and PNG images are supported"
+        )
+
     file_name = f"{new_complaint.id}.{file_ext}"
     file_bytes = file.file.read()
-    
-    # temporary local save for ML
-    local_path = os.path.join("uploads", file_name)
+
+    local_path = os.path.join(UPLOAD_DIR, file_name)
     with open(local_path, "wb") as f:
         f.write(file_bytes)
 
+    # 3️⃣ Upload to Supabase
     bucket = "Sahaay_Complaints-Media"
-
     try:
         supabase.storage.from_(bucket).upload(
             file_name,
             file_bytes,
             {"content-type": file.content_type}
         )
-    except Exception as e:
+    except Exception:
         db.delete(new_complaint)
         db.commit()
         raise HTTPException(status_code=500, detail="Media upload failed")
 
-    # 3️⃣ Public URL
-    public_url = supabase.storage.from_(bucket).get_public_url(file_name)
-    new_complaint.media_url = public_url
-    
-    # ✅ ML detection
-    detections = detect_on_image(local_path)
-    print("ML DETECTIONS:", detections)
+    # 4️⃣ Save public URL
+    new_complaint.media_url = (
+        supabase.storage.from_(bucket).get_public_url(file_name)
+    )
 
-
-    # ✅ Auto category from ML output
-    labels = [d["label"].lower() for d in detections]
-
-    if "pothole" in labels:
-        new_complaint.category = "Road Issue"
-    elif "garbage" in labels:
-        new_complaint.category = "Garbage Issue"
-    elif "fallentrees" in labels:
-        new_complaint.category = "Fallen Tree"
-    else:
-        new_complaint.category = "Other"
-
-
-    # 4️⃣ Auto category
-    # desc = description.lower()
-    # if "road" in desc or "pothole" in desc:
-    #     new_complaint.category = "Road Issue"
-    # elif "water" in desc:
-    #     new_complaint.category = "Water Supply"
-    # else:
-    #     new_complaint.category = "Other"
-
+    # 5️⃣ Initial category (fast response)
+    new_complaint.category = "processing"
     db.commit()
     db.refresh(new_complaint)
-    
-    # ✅ Cleanup temporary file
-    if os.path.exists(local_path):
-        os.remove(local_path)
+
+    # 6️⃣ Run ML asynchronously
+    background_tasks.add_task(
+        run_ml_and_update,
+        SessionLocal,
+        new_complaint.id,
+        local_path
+    )
 
     return new_complaint
 
@@ -138,7 +162,7 @@ def get_complaint(complaint_id: str, db: Session = Depends(get_db)):
     return complaint
 
 # ------------------ Get All Complaints ------------------
-@app.get("/complaints/", response_model=list[ComplaintResponse])
+@app.get("/complaints/")
 def get_all_complaints(db: Session = Depends(get_db)):
     return sih_crud.get_all_complaints(db)
 
@@ -200,12 +224,20 @@ def add_feedback(
 @app.get("/analytics/summary")
 def analytics_summary(db: Session = Depends(get_db)):
     total = db.query(Complaint).count()
-    resolved = db.query(Complaint).filter(Complaint.status == "resolved").count()
-    in_progress = db.query(Complaint).filter(Complaint.status == "in_progress").count()
+    resolved = db.query(Complaint).filter(
+        Complaint.status == "resolved"
+    ).count()
+    in_progress = db.query(Complaint).filter(
+        Complaint.status == "in_progress"
+    ).count()
 
     by_category = {}
-    for cat in ["Road Issue", "Water Supply", "Other"]:
-        by_category[cat] = db.query(Complaint).filter(Complaint.category == cat).count()
+    for cat in ["Road Issue", "Garbage Issue", "Fallen Tree", "Other"]:
+        by_category[cat] = (
+            db.query(Complaint)
+            .filter(Complaint.category == cat)
+            .count()
+        )
 
     return {
         "total": total,
@@ -214,18 +246,16 @@ def analytics_summary(db: Session = Depends(get_db)):
         "by_category": by_category
     }
 
-
-#Model Integration Code
-
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
+# ------------------ Detect Image (Debug Only) ------------------
 @app.post("/detect-image")
-async def detect_image(file: UploadFile = File(...)):
+def detect_image(file: UploadFile = File(...)):
     file_path = os.path.join(UPLOAD_DIR, file.filename)
-
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
     detections = detect_on_image(file_path)
+
+    if os.path.exists(file_path):
+        os.remove(file_path)
+
     return {"detections": detections}
